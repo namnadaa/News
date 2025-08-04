@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: news-postgres
+    environment:
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: strongpassword
+      POSTGRES_DB: newsdb
+    ports: 
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data  
+      - ./initdb:/docker-entrypoint-initdb.d
+    restart: unless-stopped 
+
+  news:
+    build: .
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    environment:
+      STORAGE: postgres
+      DATABASE_URL: "postgres://news_user:strongpassword@news-postgres:5432/newsdb?sslmode=disable"
+
+volumes:
+  pgdata:
