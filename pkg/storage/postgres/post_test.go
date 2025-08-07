@@ -119,7 +119,7 @@ func TestPostgresStorage_Posts(t *testing.T) {
 	t.Logf("Paginated post: %+v", pagedPosts[0])
 }
 
-func TestPostgresStorage_CreatePost(t *testing.T) {
+func TestPostgresStorage_AddPost(t *testing.T) {
 	connstr := "postgres://news_user:strongpassword@localhost:5435/newsdb?sslmode=disable"
 
 	ps, err := New(connstr)
@@ -142,7 +142,7 @@ func TestPostgresStorage_CreatePost(t *testing.T) {
 		Link:    "https://example.com/news/1",
 	}
 
-	data, err := ps.CreatePost(post)
+	data, err := ps.AddPost(post)
 	if err != nil {
 		t.Fatalf("could not create post: %v", err)
 	}

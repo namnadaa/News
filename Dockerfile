@@ -20,7 +20,7 @@ ENTRYPOINT ["./news"]
 # COPY go.sum ./
 # RUN go mod download
 # COPY . ./
-# RUN GOARCH=arm64 go build -o news ./cmd/server
+# RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o news ./cmd/server
 
 # FROM --platform=linux/arm64 alpine:latest
 # WORKDIR /root/
