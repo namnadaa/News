@@ -82,8 +82,8 @@ func (ps *PostgresStorage) Posts(limit, offset int) ([]storage.Post, error) {
 	return posts, nil
 }
 
-// CreatePost adds a new post to the database.
-func (ps *PostgresStorage) CreatePost(p storage.Post) (storage.Post, error) {
+// AddPost adds a new post to the database.
+func (ps *PostgresStorage) AddPost(p storage.Post) (storage.Post, error) {
 	var post storage.Post
 	err := ps.db.QueryRow(context.Background(), `
 	INSERT INTO posts (title, content, pub_time, link)

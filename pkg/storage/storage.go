@@ -15,5 +15,5 @@ type Post struct {
 type Storage interface {
 	Post(newsID int) (Post, error)
 	Posts(limit, offset int) ([]Post, error)
-	CreatePost(p Post) (Post, error)
+	AddPost(p Post) (Post, error)
 }
