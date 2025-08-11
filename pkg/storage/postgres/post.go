@@ -105,3 +105,12 @@ func (ps *PostgresStorage) AddPost(p storage.Post) (storage.Post, error) {
 
 	return post, nil
 }
+
+// ClearPosts clears the table.
+func (ps *PostgresStorage) ClearPosts() error {
+	_, err := ps.db.Exec(context.Background(), `DELETE FROM posts;`)
+	if err != nil {
+		return fmt.Errorf("failed to clean up posts table: %v", err)
+	}
+	return nil
+}

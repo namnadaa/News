@@ -16,9 +16,9 @@ func TestPostgresStorage_Post(t *testing.T) {
 	}
 	defer ps.db.Close()
 
-	_, err = ps.db.Exec(context.Background(), `DELETE FROM posts;`)
+	err = ps.ClearPosts()
 	if err != nil {
-		t.Fatalf("failed to clean up posts table: %v", err)
+		t.Fatalf("failed to clear post: %v", err)
 	}
 
 	rows, err := ps.db.Query(context.Background(), `
@@ -74,9 +74,9 @@ func TestPostgresStorage_Posts(t *testing.T) {
 	}
 	defer ps.db.Close()
 
-	_, err = ps.db.Exec(context.Background(), `DELETE FROM posts;`)
+	err = ps.ClearPosts()
 	if err != nil {
-		t.Fatalf("failed to clean up posts table: %v", err)
+		t.Fatalf("failed to clear post: %v", err)
 	}
 
 	rows, err := ps.db.Query(context.Background(), `
@@ -128,9 +128,9 @@ func TestPostgresStorage_AddPost(t *testing.T) {
 	}
 	defer ps.db.Close()
 
-	_, err = ps.db.Exec(context.Background(), `DELETE FROM posts;`)
+	err = ps.ClearPosts()
 	if err != nil {
-		t.Fatalf("failed to clean up posts table: %v", err)
+		t.Fatalf("failed to clear post: %v", err)
 	}
 
 	post := storage.Post{
