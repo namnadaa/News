@@ -8,7 +8,7 @@ import (
 )
 
 func TestPostgresStorage_Post(t *testing.T) {
-	connstr := "postgres://news_user:strongpassword@localhost:5435/newsdb?sslmode=disable"
+	connstr := "postgres://news_user_test:strongpasswordtest@localhost:5436/newsdb_test?sslmode=disable"
 
 	ps, err := New(connstr)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestPostgresStorage_Post(t *testing.T) {
 }
 
 func TestPostgresStorage_Posts(t *testing.T) {
-	connstr := "postgres://news_user:strongpassword@localhost:5435/newsdb?sslmode=disable"
+	connstr := "postgres://news_user_test:strongpasswordtest@localhost:5436/newsdb_test?sslmode=disable"
 
 	ps, err := New(connstr)
 	if err != nil {
@@ -120,7 +120,7 @@ func TestPostgresStorage_Posts(t *testing.T) {
 }
 
 func TestPostgresStorage_CreatePost(t *testing.T) {
-	connstr := "postgres://news_user:strongpassword@localhost:5435/newsdb?sslmode=disable"
+	connstr := "postgres://news_user_test:strongpasswordtest@localhost:5436/newsdb_test?sslmode=disable"
 
 	ps, err := New(connstr)
 	if err != nil {
@@ -128,9 +128,7 @@ func TestPostgresStorage_CreatePost(t *testing.T) {
 	}
 	defer ps.db.Close()
 
-	_, err = ps.db.Exec(context.Background(), `
-	DELETE FROM posts;
-	`)
+	_, err = ps.db.Exec(context.Background(), `DELETE FROM posts;`)
 	if err != nil {
 		t.Fatalf("failed to clean up posts table: %v", err)
 	}

@@ -13,7 +13,7 @@ type Post struct {
 
 // Interface defines the behavior of a storage system for posts.
 type Storage interface {
-	Post(postID int) (Post, error)
+	Post(newsID int) (Post, error)
 	Posts(limit, offset int) ([]Post, error)
 	CreatePost(p Post) (Post, error)
 }

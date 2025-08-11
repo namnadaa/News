@@ -13,6 +13,20 @@ services:
       - ./initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped 
 
+  postgres_test:
+    image: postgres:16
+    container_name: news-postgres-test
+    environment:
+      POSTGRES_USER: news_user_test
+      POSTGRES_PASSWORD: strongpasswordtest
+      POSTGRES_DB: newsdb_test
+    ports: 
+      - "5436:5432"
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data  
+      - ./initdb:/docker-entrypoint-initdb.d
+    restart: unless-stopped 
+
   news:
     build: .
     ports:
@@ -25,3 +39,5 @@ services:
 
 volumes:
   pgdata:
+  pgdata_test:
+

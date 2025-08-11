@@ -7,7 +7,7 @@ import (
 )
 
 // Post retrieves a post by its ID from the database.
-func (ps *PostgresStorage) Post(postID int) (storage.Post, error) {
+func (ps *PostgresStorage) Post(newsID int) (storage.Post, error) {
 	var p storage.Post
 	err := ps.db.QueryRow(context.Background(), `
 	SELECT
@@ -21,7 +21,7 @@ func (ps *PostgresStorage) Post(postID int) (storage.Post, error) {
 	WHERE
 		id = $1;
 	`,
-		postID,
+		newsID,
 	).Scan(
 		&p.ID,
 		&p.Title,
