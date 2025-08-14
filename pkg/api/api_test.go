@@ -26,15 +26,14 @@ func TestAPI_postHandler(t *testing.T) {
 
 	err = db.ClearPosts()
 	if err != nil {
-		t.Fatalf("Failed to clear post: %v", err)
+		t.Fatalf("Failed to clear posts: %v", err)
 	}
 
 	post := storage.Post{
-		ID:      1,
 		Title:   "News-1",
 		Content: "Content-1",
 		PubTime: time.Now(),
-		Link:    "http://news1/content1",
+		Link:    "http://example.com/news1",
 	}
 
 	created, err := db.AddPost(post)
@@ -46,7 +45,7 @@ func TestAPI_postHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rr := httptest.NewRecorder()
 	api.r.ServeHTTP(rr, req)
-	if !(rr.Code == http.StatusOK) {
+	if rr.Code != http.StatusOK {
 		t.Errorf("Code error: got %d, want %d", rr.Code, http.StatusOK)
 	}
 
@@ -64,6 +63,13 @@ func TestAPI_postHandler(t *testing.T) {
 	if got.Title != post.Title {
 		t.Errorf("Got title %q, want %q", got.Title, post.Title)
 	}
+
+	errReq := httptest.NewRequest(http.MethodGet, "/news/999999", nil)
+	errRr := httptest.NewRecorder()
+	api.r.ServeHTTP(errRr, errReq)
+	if errRr.Code != http.StatusNotFound {
+		t.Errorf("Code error: got %d, want %d", rr.Code, http.StatusNotFound)
+	}
 }
 
 func TestAPI_postsHandler(t *testing.T) {
@@ -78,7 +84,7 @@ func TestAPI_postsHandler(t *testing.T) {
 
 	err = db.ClearPosts()
 	if err != nil {
-		t.Fatalf("Failed to clear post: %v", err)
+		t.Fatalf("Failed to clear posts: %v", err)
 	}
 
 	post1 := storage.Post{
@@ -108,7 +114,7 @@ func TestAPI_postsHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/news", nil)
 	rr := httptest.NewRecorder()
 	api.r.ServeHTTP(rr, req)
-	if !(rr.Code == http.StatusOK) {
+	if rr.Code != http.StatusOK {
 		t.Errorf("Code error: got %d, want %d", rr.Code, http.StatusOK)
 	}
 
@@ -125,7 +131,7 @@ func TestAPI_postsHandler(t *testing.T) {
 
 	const wantLen = 2
 	if len(data) != wantLen {
-		t.Fatalf("Got %d order(s), want %d", len(data), wantLen)
+		t.Fatalf("Got %d post(s), want %d", len(data), wantLen)
 	}
 }
 
@@ -154,8 +160,7 @@ func TestAPI_addPostHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/news", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	api.r.ServeHTTP(rr, req)
-
-	if !(rr.Code == http.StatusOK) {
+	if rr.Code != http.StatusOK {
 		t.Errorf("Code error: got %d, want %d", rr.Code, http.StatusOK)
 	}
 
@@ -169,18 +174,22 @@ func TestAPI_addPostHandler(t *testing.T) {
 	}
 
 	invalidJSON := `{"title": "Broken Post"`
-
-	req1 := httptest.NewRequest(http.MethodPost, "/news", bytes.NewBufferString(invalidJSON))
-	rr1 := httptest.NewRecorder()
-
-	api.addPostHandler(rr1, req1)
-
-	if rr1.Code != http.StatusInternalServerError {
-		t.Errorf("got status %d, want %d", rr1.Code, http.StatusInternalServerError)
+	reqInv := httptest.NewRequest(http.MethodPost, "/news", bytes.NewBufferString(invalidJSON))
+	rrInv := httptest.NewRecorder()
+	api.addPostHandler(rrInv, reqInv)
+	if rrInv.Code != http.StatusBadRequest {
+		t.Errorf("got status %d, want %d", rrInv.Code, http.StatusBadRequest)
 	}
 
-	body1 := rr1.Body.String()
-	if !strings.Contains(body1, "failed to decode response") {
-		t.Errorf("unexpected body: %s", body1)
+	bodyInv := rrInv.Body.String()
+	if !strings.Contains(bodyInv, "failed to decode response") {
+		t.Errorf("unexpected body: %s", bodyInv)
+	}
+
+	reqDup := httptest.NewRequest(http.MethodPost, "/news", bytes.NewReader(body))
+	rrDup := httptest.NewRecorder()
+	api.r.ServeHTTP(rrDup, reqDup)
+	if rrDup.Code != http.StatusInternalServerError {
+		t.Errorf("duplicate link status=%d, want 500", rrDup.Code)
 	}
 }

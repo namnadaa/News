@@ -59,15 +59,20 @@ func (api *API) postHandler(w http.ResponseWriter, r *http.Request) {
 
 	post, err := api.db.Post(id)
 	if err != nil {
-		slog.Error("postHandler: failed to get post", "id", id, "err", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("postHandler: post not found", "id", id, "err", err)
+			http.Error(w, "post not found", http.StatusNotFound)
+		} else {
+			slog.Error("postHandler: failed to get post", "id", id, "err", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(post)
 	if err != nil {
 		slog.Error("postHandler: failed to encode JSON", "err", err)
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
 }
@@ -104,20 +109,15 @@ func (api *API) postsHandler(w http.ResponseWriter, r *http.Request) {
 
 	posts, err := api.db.Posts(limit, offset)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			slog.Error("postsHandler: failed to get posts", "err", err)
-			http.Error(w, "post not found", http.StatusNotFound)
-		} else {
-			slog.Error("postsHandler: failed to get posts", "err", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-		}
+		slog.Error("postsHandler: failed to get posts", "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(posts)
 	if err != nil {
 		slog.Error("postsHandler: failed to encode JSON", "err", err)
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
 }
@@ -128,7 +128,7 @@ func (api *API) addPostHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
 		slog.Error("addPostHandler: failed to decode JSON", "err", err)
-		http.Error(w, "failed to decode response", http.StatusInternalServerError)
+		http.Error(w, "failed to decode response", http.StatusBadRequest)
 		return
 	}
 
@@ -142,7 +142,7 @@ func (api *API) addPostHandler(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(post)
 	if err != nil {
 		slog.Error("addPostHandler: failed to encode JSON", "err", err)
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
 }

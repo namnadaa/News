@@ -30,7 +30,7 @@ func (ps *PostgresStorage) Post(newsID int) (storage.Post, error) {
 		&p.Link,
 	)
 	if err != nil {
-		return p, fmt.Errorf("failed to execute query for Post: %v", err)
+		return p, fmt.Errorf("failed to execute query for Post: %w", err)
 	}
 
 	return p, nil
@@ -54,7 +54,7 @@ func (ps *PostgresStorage) Posts(limit, offset int) ([]storage.Post, error) {
 	`,
 		limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute query for Posts: %v", err)
+		return nil, fmt.Errorf("failed to execute query for Posts: %w", err)
 	}
 	defer rows.Close()
 
@@ -69,7 +69,7 @@ func (ps *PostgresStorage) Posts(limit, offset int) ([]storage.Post, error) {
 			&p.Link,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan post row: %v", err)
+			return nil, fmt.Errorf("failed to scan post row: %w", err)
 		}
 
 		posts = append(posts, p)
@@ -100,7 +100,7 @@ func (ps *PostgresStorage) AddPost(p storage.Post) (storage.Post, error) {
 		&post.Link,
 	)
 	if err != nil {
-		return post, fmt.Errorf("failed to create post: %v", err)
+		return post, fmt.Errorf("failed to create post: %w", err)
 	}
 
 	return post, nil
@@ -110,7 +110,7 @@ func (ps *PostgresStorage) AddPost(p storage.Post) (storage.Post, error) {
 func (ps *PostgresStorage) ClearPosts() error {
 	_, err := ps.db.Exec(context.Background(), `DELETE FROM posts;`)
 	if err != nil {
-		return fmt.Errorf("failed to clean up posts table: %v", err)
+		return fmt.Errorf("failed to clean up posts table: %w", err)
 	}
 	return nil
 }
