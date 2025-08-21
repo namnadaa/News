@@ -7,11 +7,13 @@ import (
 	"strings"
 )
 
+// Config — configuration structure
 type Config struct {
 	RSS           []string `json:"rss"`
 	RequestPeriod int      `json:"request_period"`
 }
 
+// Load reads the configuration file, parses the JSON.
 func (c *Config) Load(path string) error {
 	b, err := os.ReadFile(path)
 	if err != nil {

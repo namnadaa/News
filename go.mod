@@ -5,6 +5,7 @@ go 1.23.2
 require github.com/gorilla/mux v1.8.1
 
 require (
+	github.com/grokify/html-strip-tags-go v0.1.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.14.3 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
