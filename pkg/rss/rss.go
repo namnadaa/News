@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"news/pkg/storage"
+	"strings"
 	"time"
 
 	strip "github.com/grokify/html-strip-tags-go"
@@ -73,12 +74,12 @@ func Parse(url string) ([]storage.Post, error) {
 		time.RFC3339,
 	}
 
-	var data []storage.Post
+	data := make([]storage.Post, 0, len(f.Channel.Items))
 	for _, itemNode := range f.Channel.Items {
 		var p storage.Post
-		p.Title = itemNode.Title
-		p.Content = strip.StripTags(itemNode.Description)
-		p.Link = itemNode.Link
+		p.Title = strings.TrimSpace(itemNode.Title)
+		p.Content = strings.TrimSpace(strip.StripTags(itemNode.Description))
+		p.Link = strings.TrimSpace(itemNode.Link)
 
 		var parsed time.Time
 		var parsErr error
@@ -96,7 +97,7 @@ func Parse(url string) ([]storage.Post, error) {
 		if parsed.IsZero() {
 			slog.Warn("Parse: pubDate parse failed", "pubDate", itemNode.PubDate, "err", parsErr)
 		}
-		p.PubTime = parsed
+		p.PubTime = parsed.UTC()
 
 		data = append(data, p)
 	}
