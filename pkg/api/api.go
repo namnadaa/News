@@ -6,18 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"news/pkg/storage"
-	"os"
 	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
 )
-
-// Configuring the logger to write to the console with the Info level
-func init() {
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
-	slog.SetDefault(slog.New(handler))
-}
 
 // API handles HTTP requests and routes.
 type API struct {
