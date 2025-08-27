@@ -1,6 +1,7 @@
 package rss
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"news/pkg/storage"
@@ -88,7 +89,10 @@ func TestParse(t *testing.T) {
 		}))
 		defer tsOK.Close()
 
-		got, err := Parse(tsOK.URL)
+		client := &http.Client{Timeout: 10 * time.Second}
+		ctx := context.Background()
+
+		got, err := Parse(ctx, client, tsOK.URL)
 		if (err != nil) != testOK.wantErr {
 			t.Errorf("Parse() error = %v, wantErr %v", err, testOK.wantErr)
 			return
@@ -105,8 +109,11 @@ func TestParse(t *testing.T) {
 		}))
 		defer tsErr.Close()
 
+		client := &http.Client{Timeout: 10 * time.Second}
+		ctx := context.Background()
+
 		wantErr := true
-		_, err := Parse(tsErr.URL)
+		_, err := Parse(ctx, client, tsErr.URL)
 		if (err != nil) != wantErr {
 			t.Errorf("Parse() error = %v, wantErr %v", err, wantErr)
 			return

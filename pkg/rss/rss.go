@@ -1,6 +1,7 @@
 package rss
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -34,11 +35,15 @@ type item struct {
 }
 
 // Parse downloads RSS from the URL, decodes the XML, and returns a Post slice.
-func Parse(url string) ([]storage.Post, error) {
-	client := &http.Client{Timeout: time.Duration(time.Second * 10)}
-	res, err := client.Get(url)
+func Parse(ctx context.Context, client *http.Client, url string) ([]storage.Post, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("http GET failed: %v", err)
+		return nil, fmt.Errorf("new request failed: %v", err)
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("do request failed: %v", err)
 	}
 	defer res.Body.Close()
 
