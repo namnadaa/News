@@ -2,23 +2,22 @@ package aggregator
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"news/pkg/rss"
 	"news/pkg/storage"
 	"time"
 )
 
+// Aggregator polls RSS feeds and stores posts in the storage.
 type Aggregator struct {
-	store  storage.Storage
 	feeds  []string
 	period time.Duration
 	client *http.Client
 }
 
-func New(s storage.Storage, f []string, p time.Duration) *Aggregator {
+// New creates and initializes a new Aggregator.
+func New(f []string, p time.Duration) *Aggregator {
 	ag := Aggregator{
-		store:  s,
 		feeds:  f,
 		period: p,
 		client: &http.Client{Timeout: 10 * time.Second},
@@ -26,7 +25,8 @@ func New(s storage.Storage, f []string, p time.Duration) *Aggregator {
 	return &ag
 }
 
-func (a *Aggregator) RunOnce(ctx context.Context) {
+// runOnce fetches all feeds once and sends posts to channels.
+func (a *Aggregator) runOnce(ctx context.Context, posts chan<- []storage.Post, errs chan<- error) {
 	for _, url := range a.feeds {
 		select {
 		case <-ctx.Done():
@@ -34,23 +34,41 @@ func (a *Aggregator) RunOnce(ctx context.Context) {
 		default:
 		}
 
-		posts, err := rss.Parse(ctx, a.client, url)
+		news, err := rss.Parse(ctx, a.client, url)
 		if err != nil {
-			slog.Error("runOnce: couldn't load RSS feed", "url", url, "err", err)
-			continue
-		}
-
-		for _, post := range posts {
 			select {
 			case <-ctx.Done():
 				return
-			default:
+			case errs <- err:
 			}
-			_, err := a.store.AddPost(post)
-			if err != nil {
-				slog.Error("runOnce: couldn't add post to database", "err", err)
-				continue
-			}
+			continue
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case posts <- news:
+		}
+	}
+}
+
+// Run starts periodic fetching until the context is canceled.
+func (a *Aggregator) Run(ctx context.Context, posts chan<- []storage.Post, errs chan<- error) {
+	if a.period <= 0 {
+		a.runOnce(ctx, posts, errs)
+		return
+	}
+
+	ticker := time.NewTicker(a.period)
+
+	a.runOnce(ctx, posts, errs)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.runOnce(ctx, posts, errs)
 		}
 	}
 }
