@@ -92,7 +92,7 @@ func TestPostgresStorage_Posts(t *testing.T) {
 	}
 	defer rows.Close()
 
-	posts, err := ps.Posts(10, 0)
+	posts, err := ps.Posts(10)
 	if err != nil {
 		t.Fatalf("failed to get posts: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestPostgresStorage_Posts(t *testing.T) {
 		}
 	}
 
-	pagedPosts, err := ps.Posts(1, 1)
+	pagedPosts, err := ps.Posts(1)
 	if err != nil {
 		t.Fatalf("failed to get paginated posts: %v", err)
 	}

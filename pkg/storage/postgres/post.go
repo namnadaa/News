@@ -38,7 +38,7 @@ func (ps *PostgresStorage) Post(newsID int) (storage.Post, error) {
 
 // Posts returns a list of posts ordered by pub_time (newest first).
 // Supports optional limit and offset for pagination.
-func (ps *PostgresStorage) Posts(limit, offset int) ([]storage.Post, error) {
+func (ps *PostgresStorage) Posts(limit int) ([]storage.Post, error) {
 	rows, err := ps.db.Query(context.Background(), `
 	SELECT 
 		id, 
@@ -50,9 +50,9 @@ func (ps *PostgresStorage) Posts(limit, offset int) ([]storage.Post, error) {
 		posts
 	ORDER BY 
 		pub_time DESC
-	LIMIT $1 OFFSET $2;
+	LIMIT $1;
 	`,
-		limit, offset)
+		limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query for Posts: %w", err)
 	}
