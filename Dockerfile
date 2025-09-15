@@ -9,5 +9,7 @@ RUN go build -o news ./cmd/server
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=builder /app/news .
+COPY config.json ./config.json
+COPY webapp ./webapp
 EXPOSE 8080
 ENTRYPOINT ["./news"]

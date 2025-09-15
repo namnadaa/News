@@ -35,7 +35,7 @@ services:
       - postgres
     environment:
       STORAGE: postgres
-      DATABASE_URL: "postgres://news_user:strongpassword@localhost:5435/newsdb?sslmode=disable"
+      DATABASE_URL: "postgres://news_user:strongpassword@postgres:5432/newsdb?sslmode=disable"
 
 volumes:
   pgdata:
