@@ -41,7 +41,7 @@ func TestAPI_postHandler(t *testing.T) {
 		t.Fatalf("Failed to insert post: %v", err)
 	}
 
-	url := fmt.Sprintf("/news/%d", created.ID)
+	url := fmt.Sprintf("/news/new/%d", created.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rr := httptest.NewRecorder()
 	api.r.ServeHTTP(rr, req)
@@ -54,7 +54,7 @@ func TestAPI_postHandler(t *testing.T) {
 		t.Fatalf("The server response could not be decoded: %v", err)
 	}
 
-	var got storage.Post
+	var got postDTO
 	err = json.Unmarshal(b, &got)
 	if err != nil {
 		t.Fatalf("The server response could not be decoded: %v", err)
@@ -64,11 +64,11 @@ func TestAPI_postHandler(t *testing.T) {
 		t.Errorf("Got title %q, want %q", got.Title, post.Title)
 	}
 
-	errReq := httptest.NewRequest(http.MethodGet, "/news/999999", nil)
+	errReq := httptest.NewRequest(http.MethodGet, "/news/new/999999", nil)
 	errRr := httptest.NewRecorder()
 	api.r.ServeHTTP(errRr, errReq)
 	if errRr.Code != http.StatusNotFound {
-		t.Errorf("Code error: got %d, want %d", rr.Code, http.StatusNotFound)
+		t.Errorf("Code error: got %d, want %d", errRr.Code, http.StatusNotFound)
 	}
 }
 
@@ -111,7 +111,7 @@ func TestAPI_postsHandler(t *testing.T) {
 		t.Fatalf("Failed to insert post: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/news", nil)
+	req := httptest.NewRequest(http.MethodGet, "/news/2", nil)
 	rr := httptest.NewRecorder()
 	api.r.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -123,7 +123,7 @@ func TestAPI_postsHandler(t *testing.T) {
 		t.Fatalf("The server response could not be decoded: %v", err)
 	}
 
-	var data []storage.Post
+	var data []postDTO
 	err = json.Unmarshal(b, &data)
 	if err != nil {
 		t.Fatalf("The server response could not be decoded: %v", err)
