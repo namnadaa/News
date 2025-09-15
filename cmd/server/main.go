@@ -26,7 +26,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	connStr := "postgres://news_user:strongpassword@localhost:5435/newsdb?sslmode=disable"
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		connStr = "postgres://news_user:strongpassword@localhost:5435/newsdb?sslmode=disable"
+	}
 	db, err := postgres.New(connStr)
 	if err != nil {
 		slog.Error("could not create DB storage", "err", err)
@@ -56,10 +59,10 @@ func main() {
 				for _, post := range posts {
 					saved, err := db.AddPost(post)
 					if err != nil {
-						slog.Error("could not add post", "post", post, "err", err)
+						slog.Error("could not add post", "link", post.Link, "err", err)
 						continue
 					}
-					slog.Info("post added", "post", saved)
+					slog.Info("post added", "post", saved.ID, "link", saved.Link)
 				}
 			}
 		}
