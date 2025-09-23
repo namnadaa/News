@@ -10,7 +10,7 @@ services:
       - "5435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data  
-      - ./initdb:/docker-entrypoint-initdb.d
+      - ./news/initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped 
 
   postgres_test:
@@ -24,11 +24,12 @@ services:
       - "5436:5432"
     volumes:
       - pgdata_test:/var/lib/postgresql/data  
-      - ./initdb:/docker-entrypoint-initdb.d
+      - ./news/initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped 
 
   news:
-    build: .
+    build: 
+      context: ./news
     ports:
       - "8081:8080"
     depends_on:
