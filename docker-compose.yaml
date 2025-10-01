@@ -27,6 +27,15 @@ services:
       - ./news/initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped 
 
+  mongo:
+    image: mongo:7
+    container_name: comments-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped 
+
   news:
     build: 
       context: ./news
@@ -37,8 +46,20 @@ services:
     environment:
       STORAGE: postgres
       DATABASE_URL: "postgres://news_user:strongpassword@postgres:5432/newsdb?sslmode=disable"
+  comments:
+    build:
+      context: ./comments
+    ports:
+      - "8082:8082"
+    depends_on:
+     - mongo
+    environment:
+      MONGO_URI: "mongodb://comments-mongo:27017"
+      MONGO_DB: "commentsdb"
+      MONGO_COLLECTION: "comments"      
 
 volumes:
   pgdata:
   pgdata_test:
+  mongo_data:
 

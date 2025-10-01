@@ -4,6 +4,7 @@ import (
 	"comments/pkg/storage"
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -39,6 +40,8 @@ func (ms *MongoStorage) CommentsByNews(newsID string) ([]storage.Comment, error)
 
 // AddComment saves a new comment and returns it with generated ID.
 func (ms *MongoStorage) AddComment(comment storage.Comment) (storage.Comment, error) {
+	comment.CreatedAt = time.Now()
+
 	res, err := ms.collection.InsertOne(context.Background(), comment)
 	if err != nil {
 		return storage.Comment{}, fmt.Errorf("failed to insert comment: %w", err)
