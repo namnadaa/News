@@ -14,7 +14,7 @@ import (
 func (ms *MongoStorage) CommentsByNews(ctx context.Context, newsID string) ([]storage.Comment, error) {
 	collection := ms.client.Database(ms.databaseName).Collection(ms.collectionName)
 
-	filter := bson.M{"news_id": newsID}
+	filter := bson.M{"news_id": newsID, "allowed": true}
 	cur, err := collection.Find(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find comments: %w", err)
@@ -44,6 +44,7 @@ func (ms *MongoStorage) AddComment(ctx context.Context, comment storage.Comment)
 	collection := ms.client.Database(ms.databaseName).Collection(ms.collectionName)
 
 	comment.CreatedAt = time.Now()
+	comment.Allowed = false
 
 	res, err := collection.InsertOne(ctx, comment)
 	if err != nil {

@@ -13,6 +13,7 @@ type Comment struct {
 	Author    string    `bson:"author"`
 	Content   string    `bson:"content"`
 	CreatedAt time.Time `bson:"created_at"`
+	Allowed   bool      `bson:"allowed"`
 }
 
 // Interface defines the behavior of a storage system for posts.
