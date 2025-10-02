@@ -3,6 +3,7 @@ package api
 import (
 	"comments/pkg/storage"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -30,16 +31,19 @@ func (api *API) Router() *mux.Router {
 
 // Registration of API methods in the request router.
 func (api *API) endpoints() {
+	api.r.Use(api.loggingMiddleWare)
 	api.r.HandleFunc("/comments/{n}", api.commentsByNewsHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/comments", api.addCommentHandler).Methods(http.MethodPost)
 }
 
 // commentsByNewsHandler - returns the comments by news id.
 func (api *API) commentsByNewsHandler(w http.ResponseWriter, r *http.Request) {
-	newsID := mux.Vars(r)["n"]
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	comments, err := api.db.CommentsByNews(newsID)
+	newsID := mux.Vars(r)["n"]
+	comments, err := api.db.CommentsByNews(r.Context(), newsID)
 	if err != nil {
+		slog.Error("commentsByNewsHandler: failed to get comments", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -51,6 +55,7 @@ func (api *API) commentsByNewsHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(comments)
 	if err != nil {
+		slog.Error("commentsByNewsHandler: failed to encode JSON", "err", err)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
@@ -61,18 +66,21 @@ func (api *API) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 	var c storage.Comment
 	err := json.NewDecoder(r.Body).Decode(&c)
 	if err != nil {
+		slog.Error("addCommentHandler: failed to decode JSON", "err", err)
 		http.Error(w, "failed to decode response", http.StatusBadRequest)
 		return
 	}
 
-	comment, err := api.db.AddComment(c)
+	comment, err := api.db.AddComment(r.Context(), c)
 	if err != nil {
+		slog.Error("addCommentHandler: failed to add comment", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(comment)
 	if err != nil {
+		slog.Error("addCommentHandler: failed to encode JSON", "err", err)
 		http.Error(w, "failed to encode responce", http.StatusBadRequest)
 		return
 	}

@@ -1,6 +1,9 @@
 package storage
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // Comment represents a comment for a news article.
 type Comment struct {
@@ -14,6 +17,6 @@ type Comment struct {
 
 // Interface defines the behavior of a storage system for posts.
 type Storage interface {
-	CommentsByNews(newsID string) ([]Comment, error)
-	AddComment(comment Comment) (Comment, error)
+	CommentsByNews(ctx context.Context, newsID string) ([]Comment, error)
+	AddComment(ctx context.Context, comment Comment) (Comment, error)
 }

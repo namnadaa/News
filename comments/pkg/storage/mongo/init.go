@@ -16,14 +16,14 @@ type MongoStorage struct {
 }
 
 // New connects to MongoDB and returns a MongoStorage instance.
-func New(content, dbName, colName string) (*MongoStorage, error) {
+func New(ctx context.Context, content, dbName, colName string) (*MongoStorage, error) {
 	mongoOpts := options.Client().ApplyURI(content)
-	client, err := mongo.Connect(context.Background(), mongoOpts)
+	client, err := mongo.Connect(ctx, mongoOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
 
-	err = client.Ping(context.Background(), nil)
+	err = client.Ping(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot ping MongoDB: %v", err)
 	}
@@ -37,8 +37,8 @@ func New(content, dbName, colName string) (*MongoStorage, error) {
 }
 
 // Close disconnects from MongoDB.
-func (ms *MongoStorage) Close() error {
-	err := ms.client.Disconnect(context.Background())
+func (ms *MongoStorage) Close(ctx context.Context) error {
+	err := ms.client.Disconnect(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to disconnect to database: %v", err)
 	}

@@ -2,26 +2,31 @@ package mongo
 
 import (
 	"comments/pkg/storage"
+	"context"
 	"testing"
+	"time"
 )
 
 func TestMongoStorage_CommentsByNews(t *testing.T) {
 	connStr := "mongodb://localhost:27017"
 	dbName := "commentsdb_test"
 	collectionName := "comments"
-	db, err := New(connStr, dbName, collectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	db, err := New(ctx, connStr, dbName, collectionName)
 	if err != nil {
 		t.Fatalf("failed to init mongo storage: %v", err)
 	}
 
 	defer func() {
-		err := db.Close()
+		err := db.Close(ctx)
 		if err != nil {
 			t.Errorf("failed to close MongoDB: %v", err)
 		}
 	}()
 
-	err = db.Clear()
+	err = db.Clear(ctx)
 	if err != nil {
 		t.Fatalf("failed to drop collection: %v", err)
 	}
@@ -33,12 +38,12 @@ func TestMongoStorage_CommentsByNews(t *testing.T) {
 		ParentID: "",
 	}
 
-	_, err = db.AddComment(input)
+	_, err = db.AddComment(ctx, input)
 	if err != nil {
 		t.Fatalf("AddComment() unexpected error = %v", err)
 	}
 
-	comments, err := db.CommentsByNews("123")
+	comments, err := db.CommentsByNews(ctx, "123")
 	if err != nil {
 		t.Fatalf("CommentByNews() unexpected error: %v", err)
 	}
@@ -60,19 +65,22 @@ func TestMongoStorage_AddComment(t *testing.T) {
 	connStr := "mongodb://localhost:27017"
 	dbName := "commentsdb_test"
 	collectionName := "comments"
-	db, err := New(connStr, dbName, collectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	db, err := New(ctx, connStr, dbName, collectionName)
 	if err != nil {
 		t.Fatalf("failed to init mongo storage: %v", err)
 	}
 
 	defer func() {
-		err := db.Close()
+		err := db.Close(ctx)
 		if err != nil {
 			t.Errorf("failed to close MongoDB: %v", err)
 		}
 	}()
 
-	err = db.Clear()
+	err = db.Clear(ctx)
 	if err != nil {
 		t.Fatalf("failed to drop collection: %v", err)
 	}
@@ -84,7 +92,7 @@ func TestMongoStorage_AddComment(t *testing.T) {
 		ParentID: "",
 	}
 
-	got, err := db.AddComment(input)
+	got, err := db.AddComment(ctx, input)
 	if err != nil {
 		t.Fatalf("AddComment() unexpected error = %v", err)
 	}

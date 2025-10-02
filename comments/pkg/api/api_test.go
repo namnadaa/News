@@ -4,26 +4,30 @@ import (
 	"bytes"
 	"comments/pkg/storage"
 	"comments/pkg/storage/mongo"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAPI_commentsByNewsHandler(t *testing.T) {
 	connStr := "mongodb://localhost:27017"
 	dbName := "commentsdb_test"
 	collectionName := "comments"
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	db, err := mongo.New(connStr, dbName, collectionName)
+	db, err := mongo.New(ctx, connStr, dbName, collectionName)
 	if err != nil {
 		t.Fatalf("Could not create DB storage: %v", err)
 	}
 
 	defer func() {
-		err := db.Close()
+		err := db.Close(ctx)
 		if err != nil {
 			t.Errorf("failed to close MongoDB: %v", err)
 		}
@@ -31,7 +35,7 @@ func TestAPI_commentsByNewsHandler(t *testing.T) {
 
 	api := New(db)
 
-	err = db.Clear()
+	err = db.Clear(ctx)
 	if err != nil {
 		t.Fatalf("failed to drop collection: %v", err)
 	}
@@ -49,11 +53,11 @@ func TestAPI_commentsByNewsHandler(t *testing.T) {
 		ParentID: "",
 	}
 
-	_, err = db.AddComment(comment1)
+	_, err = db.AddComment(ctx, comment1)
 	if err != nil {
 		t.Fatalf("Failed to insert comment: %v", err)
 	}
-	_, err = db.AddComment(comment2)
+	_, err = db.AddComment(ctx, comment2)
 	if err != nil {
 		t.Fatalf("Failed to insert comment: %v", err)
 	}
@@ -96,14 +100,16 @@ func TestAPI_addCommentHandler(t *testing.T) {
 	connStr := "mongodb://localhost:27017"
 	dbName := "commentsdb_test"
 	collectionName := "comments"
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	db, err := mongo.New(connStr, dbName, collectionName)
+	db, err := mongo.New(ctx, connStr, dbName, collectionName)
 	if err != nil {
 		t.Fatalf("Could not create DB storage: %v", err)
 	}
 
 	defer func() {
-		err := db.Close()
+		err := db.Close(ctx)
 		if err != nil {
 			t.Errorf("failed to close MongoDB: %v", err)
 		}
@@ -111,7 +117,7 @@ func TestAPI_addCommentHandler(t *testing.T) {
 
 	api := New(db)
 
-	err = db.Clear()
+	err = db.Clear(ctx)
 	if err != nil {
 		t.Fatalf("failed to drop collection: %v", err)
 	}

@@ -11,18 +11,18 @@ import (
 )
 
 // CommentsByNews returns all comments for a given news ID.
-func (ms *MongoStorage) CommentsByNews(newsID string) ([]storage.Comment, error) {
+func (ms *MongoStorage) CommentsByNews(ctx context.Context, newsID string) ([]storage.Comment, error) {
 	collection := ms.client.Database(ms.databaseName).Collection(ms.collectionName)
 
 	filter := bson.M{"news_id": newsID}
-	cur, err := collection.Find(context.Background(), filter)
+	cur, err := collection.Find(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find comments: %w", err)
 	}
-	defer cur.Close(context.Background())
+	defer cur.Close(ctx)
 
 	var data []storage.Comment
-	for cur.Next(context.Background()) {
+	for cur.Next(ctx) {
 		var c storage.Comment
 		err := cur.Decode(&c)
 		if err != nil {
@@ -40,12 +40,12 @@ func (ms *MongoStorage) CommentsByNews(newsID string) ([]storage.Comment, error)
 }
 
 // AddComment saves a new comment and returns it with generated ID.
-func (ms *MongoStorage) AddComment(comment storage.Comment) (storage.Comment, error) {
+func (ms *MongoStorage) AddComment(ctx context.Context, comment storage.Comment) (storage.Comment, error) {
 	collection := ms.client.Database(ms.databaseName).Collection(ms.collectionName)
 
 	comment.CreatedAt = time.Now()
 
-	res, err := collection.InsertOne(context.Background(), comment)
+	res, err := collection.InsertOne(ctx, comment)
 	if err != nil {
 		return storage.Comment{}, fmt.Errorf("failed to insert comment: %w", err)
 	}
@@ -57,10 +57,10 @@ func (ms *MongoStorage) AddComment(comment storage.Comment) (storage.Comment, er
 	return comment, nil
 }
 
-func (ms *MongoStorage) Clear() error {
+func (ms *MongoStorage) Clear(ctx context.Context) error {
 	collection := ms.client.Database(ms.databaseName).Collection(ms.collectionName)
 
-	err := collection.Drop(context.Background())
+	err := collection.Drop(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to drop collection: %v", err)
 	}
