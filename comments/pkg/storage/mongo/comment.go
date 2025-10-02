@@ -57,6 +57,7 @@ func (ms *MongoStorage) AddComment(ctx context.Context, comment storage.Comment)
 	return comment, nil
 }
 
+// Clear clears the collection.
 func (ms *MongoStorage) Clear(ctx context.Context) error {
 	collection := ms.client.Database(ms.databaseName).Collection(ms.collectionName)
 

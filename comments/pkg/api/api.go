@@ -53,7 +53,7 @@ func (api *API) commentsByNewsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(comments)
+	err = json.NewEncoder(w).Encode(toDTOs(comments))
 	if err != nil {
 		slog.Error("commentsByNewsHandler: failed to encode JSON", "err", err)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
