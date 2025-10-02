@@ -10,12 +10,13 @@ import (
 
 // MongoStorage wraps MongoDB client and collection.
 type MongoStorage struct {
-	client     *mongo.Client
-	collection *mongo.Collection
+	client         *mongo.Client
+	databaseName   string
+	collectionName string
 }
 
 // New connects to MongoDB and returns a MongoStorage instance.
-func New(content, dbName, collectionName string) (*MongoStorage, error) {
+func New(content, dbName, colName string) (*MongoStorage, error) {
 	mongoOpts := options.Client().ApplyURI(content)
 	client, err := mongo.Connect(context.Background(), mongoOpts)
 	if err != nil {
@@ -27,13 +28,12 @@ func New(content, dbName, collectionName string) (*MongoStorage, error) {
 		return nil, fmt.Errorf("cannot ping MongoDB: %v", err)
 	}
 
-	collection := client.Database(dbName).Collection(collectionName)
-
-	c := MongoStorage{
-		client:     client,
-		collection: collection,
+	s := MongoStorage{
+		client:         client,
+		databaseName:   dbName,
+		collectionName: colName,
 	}
-	return &c, nil
+	return &s, nil
 }
 
 // Close disconnects from MongoDB.

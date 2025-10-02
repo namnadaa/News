@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"comments/pkg/storage"
-	"context"
 	"testing"
 )
 
@@ -22,7 +21,7 @@ func TestMongoStorage_CommentsByNews(t *testing.T) {
 		}
 	}()
 
-	err = db.collection.Drop(context.Background())
+	err = db.Clear()
 	if err != nil {
 		t.Fatalf("failed to drop collection: %v", err)
 	}
@@ -73,7 +72,7 @@ func TestMongoStorage_AddComment(t *testing.T) {
 		}
 	}()
 
-	err = db.collection.Drop(context.Background())
+	err = db.Clear()
 	if err != nil {
 		t.Fatalf("failed to drop collection: %v", err)
 	}
