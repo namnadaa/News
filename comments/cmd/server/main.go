@@ -59,13 +59,11 @@ func main() {
 		Handler: api.Router(),
 	}
 
-	go func() {
-		err = srv.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			slog.Error("http server failed", "err", err)
-			stop()
-		}
-	}()
+	err = srv.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		slog.Error("http server failed", "err", err)
+		stop()
+	}
 
 	<-ctx.Done()
 	slog.Info("shutting down")
