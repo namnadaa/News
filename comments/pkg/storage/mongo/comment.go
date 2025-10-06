@@ -44,7 +44,9 @@ func (ms *MongoStorage) AddComment(ctx context.Context, comment storage.Comment)
 	collection := ms.client.Database(ms.databaseName).Collection(ms.collectionName)
 
 	comment.CreatedAt = time.Now()
-	comment.Allowed = false
+	if !comment.Allowed {
+		comment.Allowed = false
+	}
 
 	res, err := collection.InsertOne(ctx, comment)
 	if err != nil {

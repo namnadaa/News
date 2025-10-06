@@ -42,15 +42,17 @@ func TestAPI_commentsByNewsHandler(t *testing.T) {
 
 	comment1 := storage.Comment{
 		NewsID:   "123",
+		ParentID: "",
 		Author:   "Alex",
 		Content:  "Test comment",
-		ParentID: "",
+		Allowed:  true,
 	}
 	comment2 := storage.Comment{
 		NewsID:   "123",
+		ParentID: "",
 		Author:   "Bob",
 		Content:  "Test comment 2",
-		ParentID: "",
+		Allowed:  true,
 	}
 
 	_, err = db.AddComment(ctx, comment1)
@@ -74,7 +76,7 @@ func TestAPI_commentsByNewsHandler(t *testing.T) {
 		t.Fatalf("The server response could not be decoded: %v", err)
 	}
 
-	var got []storage.Comment
+	var got []commentDTO
 	err = json.Unmarshal(b, &got)
 	if err != nil {
 		t.Fatalf("The server response could not be decoded: %v", err)
@@ -122,14 +124,21 @@ func TestAPI_addCommentHandler(t *testing.T) {
 		t.Fatalf("failed to drop collection: %v", err)
 	}
 
-	comment := storage.Comment{
+	comment1 := storage.Comment{
 		NewsID:   "123",
+		ParentID: "",
 		Author:   "Alex",
 		Content:  "Test comment",
-		ParentID: "",
 	}
 
-	body, _ := json.Marshal(comment)
+	comment2 := storage.Comment{
+		NewsID:   "123",
+		ParentID: "1",
+		Author:   "Alex",
+		Content:  "Test comment 1",
+	}
+
+	body, _ := json.Marshal(comment1)
 	req := httptest.NewRequest(http.MethodPost, "/comments", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 	api.r.ServeHTTP(rr, req)
@@ -137,14 +146,32 @@ func TestAPI_addCommentHandler(t *testing.T) {
 		t.Errorf("Code error: got %d, want %d", rr.Code, http.StatusOK)
 	}
 
-	var got storage.Comment
-	err = json.Unmarshal(rr.Body.Bytes(), &got)
+	var got1 storage.Comment
+	err = json.Unmarshal(rr.Body.Bytes(), &got1)
 	if err != nil {
 		t.Fatalf("The server response could not be decoded: %v", err)
 	}
 
-	if got.Content != comment.Content {
-		t.Errorf("Got content %q, want %q", got.Content, comment.Content)
+	if got1.Content != comment1.Content {
+		t.Errorf("Got content %q, want %q", got1.Content, comment1.Content)
+	}
+
+	body, _ = json.Marshal(comment2)
+	req = httptest.NewRequest(http.MethodPost, "/comments", bytes.NewReader(body))
+	rr = httptest.NewRecorder()
+	api.r.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("Code error: got %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var got2 storage.Comment
+	err = json.Unmarshal(rr.Body.Bytes(), &got2)
+	if err != nil {
+		t.Fatalf("The server response could not be decoded: %v", err)
+	}
+
+	if got2.Content != comment2.Content {
+		t.Errorf("Got content %q, want %q", got2.Content, comment2.Content)
 	}
 
 	invalidJSON := `{"title": "Broken Post"`
