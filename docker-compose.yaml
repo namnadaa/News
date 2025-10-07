@@ -12,6 +12,8 @@ services:
       - pgdata:/var/lib/postgresql/data  
       - ./news/initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped 
+    networks:
+      - gonews-net
 
   postgres_test:
     image: postgres:16
@@ -26,6 +28,8 @@ services:
       - pgdata_test:/var/lib/postgresql/data  
       - ./news/initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped 
+    networks:
+      - gonews-net
 
   mongo:
     image: mongo:7
@@ -35,10 +39,13 @@ services:
     volumes:
       - mongo_data:/data/db
     restart: unless-stopped 
+    networks:
+      - gonews-net
 
   news:
     build: 
       context: ./news
+    container_name: gonews-news
     ports:
       - "8081:8080"
     depends_on:
@@ -46,9 +53,13 @@ services:
     environment:
       STORAGE: postgres
       DATABASE_URL: "postgres://news_user:strongpassword@postgres:5432/newsdb?sslmode=disable"
+    networks:
+      - gonews-net
+
   comments:
     build:
       context: ./comments
+      container_name: gonews-comments
     ports:
       - "8082:8083"
     depends_on:
@@ -56,10 +67,30 @@ services:
     environment:
       MONGO_URI: "mongodb://comments-mongo:27017"
       MONGO_DB: "commentsdb"
-      MONGO_COLLECTION: "comments"      
+      MONGO_COLLECTION: "comments"    
+    networks:
+      - gonews-net
+
+  gateway:
+    build:
+      context: ./gateway
+    container_name: gonews-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - news
+      - comments
+    environment:
+      NEWS_SERVICE_URL: "http://news:8080"  
+      COMMENTS_SERVICE_URL: "http://comments:8083"  
+    networks:
+      - gonews-net
 
 volumes:
   pgdata:
   pgdata_test:
   mongo_data:
 
+networks:
+  gonews-net:
+    driver: bridge
