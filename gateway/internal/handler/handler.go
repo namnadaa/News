@@ -118,7 +118,7 @@ func (h *Handler) commentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comment.ID = 100
+	comment.ID = "100"
 	comment.CreatedAt = time.Now()
 
 	err = json.NewEncoder(w).Encode(comment)
