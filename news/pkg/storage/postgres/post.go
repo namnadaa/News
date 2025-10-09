@@ -106,6 +106,51 @@ func (ps *PostgresStorage) AddPost(p storage.Post) (storage.Post, error) {
 	return post, nil
 }
 
+// SearchPosts returns posts whose titles contain the given substring.
+func (ps *PostgresStorage) SearchPosts(search string) ([]storage.Post, error) {
+	rows, err := ps.db.Query(context.Background(), `
+	SELECT 
+		id, 
+		title, 
+		content,
+		pub_time,
+		link
+	FROM 
+		posts
+	WHERE 
+		title
+	ILIKE '%' || $1 || '%';
+	`,
+		search)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query for Posts: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []storage.Post
+	for rows.Next() {
+		var p storage.Post
+		err = rows.Scan(
+			&p.ID,
+			&p.Title,
+			&p.Content,
+			&p.PubTime,
+			&p.Link,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan post row: %w", err)
+		}
+
+		posts = append(posts, p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return posts, nil
+}
+
 // ClearPosts clears the table.
 func (ps *PostgresStorage) ClearPosts() error {
 	_, err := ps.db.Exec(context.Background(), `DELETE FROM posts;`)

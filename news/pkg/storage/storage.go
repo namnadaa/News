@@ -16,4 +16,5 @@ type Storage interface {
 	Post(newsID int) (Post, error)
 	Posts(limit int) ([]Post, error)
 	AddPost(p Post) (Post, error)
+	SearchPosts(search string) ([]Post, error)
 }

@@ -35,10 +35,41 @@ func (api *API) Router() *mux.Router {
 // Registration of API methods in the request router.
 func (api *API) endpoints() {
 	api.r.Use(api.loggingMiddleWare)
+	api.r.HandleFunc("/news/filter", api.filterHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/new/{id}", api.postHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/{n}", api.postsHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news", api.addPostHandler).Methods(http.MethodPost)
 	api.r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./webapp"))))
+}
+
+// filterHandler - returns posts filtered by title substring.
+func (api *API) filterHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	search := r.URL.Query().Get("s")
+	if search == "" {
+		http.Error(w, "missing search parameter 's'", http.StatusBadRequest)
+		return
+	}
+
+	posts, err := api.db.SearchPosts(search)
+	if err != nil {
+		slog.Error("filterHandler: failed to search posts", "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(posts) == 0 {
+		http.Error(w, "no posts found", http.StatusNotFound)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(toDTOs(posts))
+	if err != nil {
+		slog.Error("filterHandler: failed to encode JSON", "err", err)
+		http.Error(w, "failed to encode response", http.StatusBadRequest)
+		return
+	}
 }
 
 // postHandler - returns the post by id.

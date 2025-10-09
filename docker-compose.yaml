@@ -59,7 +59,7 @@ services:
   comments:
     build:
       context: ./comments
-      container_name: gonews-comments
+    container_name: gonews-comments
     ports:
       - "8082:8083"
     depends_on:

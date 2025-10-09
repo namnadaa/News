@@ -2,9 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"gateway/internal/models"
+	"io"
+	"log/slog"
 	"net/http"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -12,13 +15,17 @@ import (
 
 // Handler is responsible for registering routes and processing HTTP requests.
 type Handler struct {
-	router *mux.Router
+	router             *mux.Router
+	newsServiceURL     string
+	commentsServiceURL string
 }
 
 // NewHandler creates and initializes a new Handler instance.
-func NewHandler() *Handler {
+func New(newsURL, commentsURL string) *Handler {
 	h := Handler{}
 	h.router = mux.NewRouter()
+	h.newsServiceURL = newsURL
+	h.commentsServiceURL = commentsURL
 	h.registerRoutes()
 	return &h
 }
@@ -30,100 +37,150 @@ func (h *Handler) Router() *mux.Router {
 
 // RegisterRoutes registers all API Gateway routes.
 func (h *Handler) registerRoutes() {
-	h.router.HandleFunc("/news", h.newsHandler).Methods(http.MethodGet)
-	h.router.HandleFunc("/news/filter", h.filterHandler).Methods(http.MethodGet)
-	h.router.HandleFunc("/news/{id}", h.newHandler).Methods(http.MethodGet)
-	h.router.HandleFunc("/news/{n}/comment", h.commentHandler).Methods(http.MethodPost)
+	h.router.HandleFunc("/news", h.newsListHandler).Methods(http.MethodGet)
+	h.router.HandleFunc("/news/filter", h.newsFilterHandler).Methods(http.MethodGet)
+	h.router.HandleFunc("/news/{id}", h.newsDetailedHandler).Methods(http.MethodGet)
+	h.router.HandleFunc("/news/{id}/comment", h.addCommentHandler).Methods(http.MethodPost)
 }
 
-// newsHandler returns a list of news in a short format.
-func (h *Handler) newsHandler(w http.ResponseWriter, r *http.Request) {
+// newsListHandler proxies the request for the list of news.
+func (h *Handler) newsListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	news := []models.NewsShortDetailed{
-		{
-			ID:    1,
-			Title: "A new stub for the first news",
-			Link:  "http://example.com/stub-1",
-		},
-		{
-			ID:    2,
-			Title: "A new stub for the second news",
-			Link:  "http://example.com/stub-2",
-		},
+	page := r.URL.Query().Get("page")
+	if page != "" {
+		page = "40"
 	}
-	err := json.NewEncoder(w).Encode(news)
+	url := fmt.Sprintf("%s/news/%s", h.newsServiceURL, page)
+
+	resp, err := http.Get(url)
 	if err != nil {
+		slog.Error("newsHandler: failed to get news list", "err", err)
+		http.Error(w, "failed to fetch news", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+// newsFilterHandler proxies the request for the filter of news.
+func (h *Handler) newsFilterHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	query := r.URL.Query().Get("s")
+	if query == "" {
+		http.Error(w, "missing search query", http.StatusBadRequest)
+		return
+	}
+
+	url := fmt.Sprintf("%s/news/filter?s=%s", h.newsServiceURL, query)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		slog.Error("filterHandler: failed to get filtered news", "err", err)
+		http.Error(w, "failed to fetch filtered news", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+// newsDetailedHandler combines data from news and comments services to return full news details.
+func (h *Handler) newsDetailedHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	id := mux.Vars(r)["id"]
+
+	newsURL := fmt.Sprintf("%s/news/new/%s", h.newsServiceURL, id)
+	newsResp, err := http.Get(newsURL)
+	if err != nil {
+		slog.Error("newsDetailedHandler: failed to fetch news", "err", err)
+		http.Error(w, "failed to fetch news", http.StatusBadGateway)
+		return
+	}
+	defer newsResp.Body.Close()
+
+	if newsResp.StatusCode != http.StatusOK {
+		http.Error(w, fmt.Sprintf("news service returned %d", newsResp.StatusCode), newsResp.StatusCode)
+		return
+	}
+
+	var news models.NewsShortDetailed
+	err = json.NewDecoder(newsResp.Body).Decode(&news)
+	if err != nil {
+		slog.Error("newsDetailedHandler: failed to decode news", "err", err)
+		http.Error(w, "failed to decode news response", http.StatusInternalServerError)
+		return
+	}
+
+	commentsURL := fmt.Sprintf("%s/comments/%s", h.commentsServiceURL, id)
+	commentsResp, err := http.Get(commentsURL)
+	if err != nil {
+		slog.Error("newsDetailedHandler: failed to fetch comments", "err", err)
+		http.Error(w, "failed to fetch comments", http.StatusBadGateway)
+		return
+	}
+	defer commentsResp.Body.Close()
+
+	if commentsResp.StatusCode != http.StatusOK {
+		http.Error(w, fmt.Sprintf("comments service returned %d", commentsResp.StatusCode), commentsResp.StatusCode)
+		return
+	}
+
+	var comments []models.Comment
+	err = json.NewDecoder(commentsResp.Body).Decode(&comments)
+	if err != nil {
+		slog.Error("newsDetailedHandler: failed to decode comments", "err", err)
+		http.Error(w, "failed to decode comments response", http.StatusInternalServerError)
+	}
+
+	detailed := models.NewsFullDetailed{
+		News:     news,
+		Comments: comments,
+	}
+
+	err = json.NewEncoder(w).Encode(detailed)
+	if err != nil {
+		slog.Error("newsDetailedHandler: failed to encode JSON", "err", err)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
 }
 
-// filterHandler returns a filtered list of news items.
-func (h *Handler) filterHandler(w http.ResponseWriter, r *http.Request) {
+// addCommentHandler proxies the request for creating a new comment.
+func (h *Handler) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	news := []models.NewsShortDetailed{
-		{
-			ID:    1,
-			Title: "A new stub for the first news",
-			Link:  "http://example.com/stub-1",
-		},
-		{
-			ID:    2,
-			Title: "A new stub for the second news",
-			Link:  "http://example.com/stub-2",
-		},
-	}
-	err := json.NewEncoder(w).Encode(news)
+	id := mux.Vars(r)["id"]
+
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "failed to encode response", http.StatusBadRequest)
+		http.Error(w, "failed to read body", http.StatusBadRequest)
 		return
 	}
-}
+	updated := fmt.Sprintf(`{"news_id":"%s",%s`, id, body[1:])
+	url := fmt.Sprintf("%s/comments", h.commentsServiceURL)
 
-// newHandler returns full information about the news by ID.
-func (h *Handler) newHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	rawID := mux.Vars(r)["id"]
-	id, err := strconv.Atoi(rawID)
+	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(updated))
 	if err != nil {
-		http.Error(w, "invalid id format", http.StatusBadRequest)
+		slog.Error("addCommentHandler: failed to create request", "err", err)
+		http.Error(w, "failed to create request", http.StatusInternalServerError)
 		return
 	}
+	req.Header.Set("Content-Type", "application/json")
 
-	news := models.NewsFullDetailed{
-		ID:      id,
-		Title:   "A new stub for the first news",
-		Content: "New content",
-		PubTime: time.Now(),
-		Link:    "http://example.com/stub-3",
-	}
-	err = json.NewEncoder(w).Encode(news)
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "failed to encode response", http.StatusBadRequest)
+		slog.Error("addCommentHandler: failed to send request", "err", err)
+		http.Error(w, "failed to send request to comments service", http.StatusBadGateway)
 		return
 	}
-}
+	defer resp.Body.Close()
 
-// commentHandler accepts the news comment and returns it with the added ID and creation time.
-func (h *Handler) commentHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	var comment models.Comment
-	err := json.NewDecoder(r.Body).Decode(&comment)
-	if err != nil {
-		http.Error(w, "failed to decode response", http.StatusBadRequest)
-		return
-	}
-
-	comment.ID = "100"
-	comment.CreatedAt = time.Now()
-
-	err = json.NewEncoder(w).Encode(comment)
-	if err != nil {
-		http.Error(w, "failed to encode response", http.StatusBadRequest)
-		return
-	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }

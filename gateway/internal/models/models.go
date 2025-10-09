@@ -4,12 +4,8 @@ import "time"
 
 // NewsFullDetailed provides full information about the news.
 type NewsFullDetailed struct {
-	ID       int       `json:"id"`
-	Title    string    `json:"title"`
-	Content  string    `json:"content"`
-	PubTime  time.Time `json:"pub_time"`
-	Link     string    `json:"link"`
-	Comments []Comment `json:"comments,omitempty"`
+	News     NewsShortDetailed `json:"news"`
+	Comments []Comment         `json:"comments,omitempty"`
 }
 
 // NewsShortDetailed provides a summary of the news.
