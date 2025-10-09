@@ -2,6 +2,7 @@ package api
 
 import "news/pkg/storage"
 
+// postDTO represents a data transfer object for a single news post.
 type postDTO struct {
 	ID      int
 	Title   string
@@ -10,6 +11,13 @@ type postDTO struct {
 	Link    string
 }
 
+// NewsListResponse represents a response structure containing a list of posts and pagination info.
+type NewsListResponse struct {
+	News       []postDTO
+	Pagination storage.Pagination
+}
+
+// toDTO converts a storage.Post entity to a postDTO.
 func toDTO(p storage.Post) postDTO {
 	return postDTO{
 		ID:      p.ID,
@@ -20,6 +28,7 @@ func toDTO(p storage.Post) postDTO {
 	}
 }
 
+// toDTOs converts a slice of storage.Post entities to a slice of postDTOs.
 func toDTOs(p []storage.Post) []postDTO {
 	out := make([]postDTO, len(p))
 	for i := range p {

@@ -38,6 +38,7 @@ func (api *API) endpoints() {
 	api.r.HandleFunc("/news/filter", api.filterHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/new/{id}", api.postHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/{n}", api.postsHandler).Methods(http.MethodGet)
+	api.r.HandleFunc("/news", api.postsHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news", api.addPostHandler).Methods(http.MethodPost)
 	api.r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./webapp"))))
 }
@@ -103,25 +104,61 @@ func (api *API) postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// postsHandler - returns n posts.
+// postsHandler returns n posts and a paginated list of news posts.
 func (api *API) postsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	rawN := mux.Vars(r)["n"]
-	n, err := strconv.Atoi(rawN)
-	if err != nil || n <= 0 {
-		http.Error(w, "invalid n format", http.StatusBadRequest)
+	vars := mux.Vars(r)
+	if rawN, ok := vars["n"]; ok {
+		n, err := strconv.Atoi(rawN)
+		if err != nil || n <= 0 {
+			http.Error(w, "invalid n format", http.StatusBadRequest)
+			return
+		}
+
+		posts, err := api.db.Posts(n)
+		if err != nil {
+			slog.Error("postsHandler: failed to get posts", "err", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		err = json.NewEncoder(w).Encode(toDTOs(posts))
+		if err != nil {
+			slog.Error("postsHandler: failed to encode JSON", "err", err)
+			http.Error(w, "failed to encode response", http.StatusBadRequest)
+			return
+		}
 		return
 	}
 
-	posts, err := api.db.Posts(n)
+	pageStr := r.URL.Query().Get("page")
+	page := 1
+	if pageStr != "" {
+		p, err := strconv.Atoi(pageStr)
+		if err != nil || p <= 0 {
+			http.Error(w, "invalid page format", http.StatusBadRequest)
+			return
+		}
+		page = p
+	}
+
+	const perPage = 15
+	posts, pagination, err := api.db.GetPostsPaginated(page, perPage)
 	if err != nil {
-		slog.Error("postsHandler: failed to get posts", "err", err)
+		slog.Error("postsHandler: failed to fetch posts", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	resp := struct {
+		News       []postDTO
+		Pagination storage.Pagination
+	}{
+		News:       toDTOs(posts),
+		Pagination: pagination,
+	}
 
-	err = json.NewEncoder(w).Encode(toDTOs(posts))
+	err = json.NewEncoder(w).Encode(resp)
 	if err != nil {
 		slog.Error("postsHandler: failed to encode JSON", "err", err)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)

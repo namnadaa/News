@@ -48,10 +48,14 @@ func (h *Handler) newsListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	page := r.URL.Query().Get("page")
+	var url string
+
 	if page != "" {
-		page = "40"
+		url = fmt.Sprintf("%s/news?page=%s", h.newsServiceURL, page)
+	} else {
+		limit := "40"
+		url = fmt.Sprintf("%s/news/%s", h.newsServiceURL, limit)
 	}
-	url := fmt.Sprintf("%s/news/%s", h.newsServiceURL, page)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -93,6 +97,10 @@ func (h *Handler) newsFilterHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) newsDetailedHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := mux.Vars(r)["id"]
+	if id == "" {
+		http.Error(w, "invalid id format", http.StatusBadRequest)
+		return
+	}
 
 	newsURL := fmt.Sprintf("%s/news/new/%s", h.newsServiceURL, id)
 	newsResp, err := http.Get(newsURL)

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"math"
 	"news/pkg/storage"
 )
 
@@ -36,8 +37,7 @@ func (ps *PostgresStorage) Post(newsID int) (storage.Post, error) {
 	return p, nil
 }
 
-// Posts returns a list of posts ordered by pub_time (newest first).
-// Supports optional limit and offset for pagination.
+// Posts returns a list of posts ordered by pub_time.
 func (ps *PostgresStorage) Posts(limit int) ([]storage.Post, error) {
 	rows, err := ps.db.Query(context.Background(), `
 	SELECT 
@@ -80,6 +80,62 @@ func (ps *PostgresStorage) Posts(limit int) ([]storage.Post, error) {
 	}
 
 	return posts, nil
+}
+
+// GetPostsPaginated returns a paginated list of posts and pagination info.
+func (ps *PostgresStorage) GetPostsPaginated(page, perPage int) ([]storage.Post, storage.Pagination, error) {
+	var totalCount int
+	err := ps.db.QueryRow(context.Background(), `SELECT COUNT(*) FROM posts`).Scan(&totalCount)
+	if err != nil {
+		return nil, storage.Pagination{}, fmt.Errorf("failed to count posts: %w", err)
+	}
+
+	offset := (page - 1) * perPage
+	rows, err := ps.db.Query(context.Background(), `
+	SELECT 
+		id, 
+		title, 
+		content,
+		pub_time,
+		link
+	FROM 
+		posts
+	ORDER BY 
+		pub_time DESC
+	LIMIT $1 OFFSET $2;
+    `,
+		perPage, offset)
+	if err != nil {
+		return nil, storage.Pagination{}, fmt.Errorf("failed to fetch posts: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []storage.Post
+	for rows.Next() {
+		var p storage.Post
+		err = rows.Scan(
+			&p.ID,
+			&p.Title,
+			&p.Content,
+			&p.PubTime,
+			&p.Link,
+		)
+		if err != nil {
+			return nil, storage.Pagination{}, fmt.Errorf("failed to scan post row: %w", err)
+		}
+
+		posts = append(posts, p)
+	}
+
+	totalPages := int(math.Ceil(float64(totalCount) / float64(perPage)))
+
+	pagination := storage.Pagination{
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		PerPage:     perPage,
+	}
+
+	return posts, pagination, nil
 }
 
 // AddPost adds a new post to the database.
