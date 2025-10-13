@@ -1,4 +1,4 @@
-package api
+package handler
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func generateRandomID() string {
 }
 
 // requestIDMiddleware extracts or generates request_id and puts it into the context.
-func (api *API) requestIDMiddleware(next http.Handler) http.Handler {
+func (h *Handler) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("request_id")
 		if id == "" {
@@ -33,7 +33,7 @@ func (api *API) requestIDMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), RequestIDKey, id)
-		slog.Info("request received", "method", r.Method, "path", r.URL.Path, "request_id", id)
+		slog.Info("request received", "path", r.URL.Path, "request_id", id)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -45,4 +45,12 @@ func getRequestID(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// jsonMiddleware sets the Content-Type header for all JSON responses.
+func (h *Handler) jsonMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		next.ServeHTTP(w, r)
+	})
 }

@@ -34,7 +34,7 @@ func (api *API) Router() *mux.Router {
 
 // Registration of API methods in the request router.
 func (api *API) endpoints() {
-	api.r.Use(api.loggingMiddleWare)
+	api.r.Use(api.requestIDMiddleware)
 	api.r.HandleFunc("/news/filter", api.filterHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/new/{id}", api.postHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/{n}", api.postsHandler).Methods(http.MethodGet)
@@ -47,6 +47,8 @@ func (api *API) endpoints() {
 func (api *API) filterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
+	requestID := getRequestID(r.Context())
+
 	search := r.URL.Query().Get("s")
 	if search == "" {
 		http.Error(w, "missing search parameter 's'", http.StatusBadRequest)
@@ -55,7 +57,7 @@ func (api *API) filterHandler(w http.ResponseWriter, r *http.Request) {
 
 	posts, err := api.db.SearchPosts(search)
 	if err != nil {
-		slog.Error("filterHandler: failed to search posts", "err", err)
+		slog.Error("filterHandler: failed to search posts", "err", err, "request_id", requestID)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -67,7 +69,7 @@ func (api *API) filterHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(toDTOs(posts))
 	if err != nil {
-		slog.Error("filterHandler: failed to encode JSON", "err", err)
+		slog.Error("filterHandler: failed to encode JSON", "err", err, "request_id", requestID)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
@@ -76,6 +78,8 @@ func (api *API) filterHandler(w http.ResponseWriter, r *http.Request) {
 // postHandler - returns the post by id.
 func (api *API) postHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	requestID := getRequestID(r.Context())
 
 	rawID := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(rawID)
@@ -87,10 +91,10 @@ func (api *API) postHandler(w http.ResponseWriter, r *http.Request) {
 	post, err := api.db.Post(id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			slog.Warn("postHandler: post not found", "id", id, "err", err)
+			slog.Warn("postHandler: post not found", "id", id, "err", err, "request_id", requestID)
 			http.Error(w, "post not found", http.StatusNotFound)
 		} else {
-			slog.Error("postHandler: failed to get post", "id", id, "err", err)
+			slog.Error("postHandler: failed to get post", "id", id, "err", err, "request_id", requestID)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 		return
@@ -98,7 +102,7 @@ func (api *API) postHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(toDTO(post))
 	if err != nil {
-		slog.Error("postHandler: failed to encode JSON", "err", err)
+		slog.Error("postHandler: failed to encode JSON", "err", err, "request_id", requestID)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
@@ -107,6 +111,8 @@ func (api *API) postHandler(w http.ResponseWriter, r *http.Request) {
 // postsHandler returns n posts and a paginated list of news posts.
 func (api *API) postsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	requestID := getRequestID(r.Context())
 
 	vars := mux.Vars(r)
 	if rawN, ok := vars["n"]; ok {
@@ -118,14 +124,14 @@ func (api *API) postsHandler(w http.ResponseWriter, r *http.Request) {
 
 		posts, err := api.db.Posts(n)
 		if err != nil {
-			slog.Error("postsHandler: failed to get posts", "err", err)
+			slog.Error("postsHandler: failed to get posts", "err", err, "request_id", requestID)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
 		err = json.NewEncoder(w).Encode(toDTOs(posts))
 		if err != nil {
-			slog.Error("postsHandler: failed to encode JSON", "err", err)
+			slog.Error("postsHandler: failed to encode JSON", "err", err, "request_id", requestID)
 			http.Error(w, "failed to encode response", http.StatusBadRequest)
 			return
 		}
@@ -146,7 +152,7 @@ func (api *API) postsHandler(w http.ResponseWriter, r *http.Request) {
 	const perPage = 15
 	posts, pagination, err := api.db.GetPostsPaginated(page, perPage)
 	if err != nil {
-		slog.Error("postsHandler: failed to fetch posts", "err", err)
+		slog.Error("postsHandler: failed to fetch posts", "err", err, "request_id", requestID)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -160,7 +166,7 @@ func (api *API) postsHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(resp)
 	if err != nil {
-		slog.Error("postsHandler: failed to encode JSON", "err", err)
+		slog.Error("postsHandler: failed to encode JSON", "err", err, "request_id", requestID)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
@@ -168,24 +174,26 @@ func (api *API) postsHandler(w http.ResponseWriter, r *http.Request) {
 
 // addPostHandler - creates a new post.
 func (api *API) addPostHandler(w http.ResponseWriter, r *http.Request) {
+	requestID := getRequestID(r.Context())
+
 	var p storage.Post
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
-		slog.Error("addPostHandler: failed to decode JSON", "err", err)
+		slog.Error("addPostHandler: failed to decode JSON", "err", err, "request_id", requestID)
 		http.Error(w, "failed to decode response", http.StatusBadRequest)
 		return
 	}
 
 	post, err := api.db.AddPost(p)
 	if err != nil {
-		slog.Error("addPostHandler: failed to add post", "err", err)
+		slog.Error("addPostHandler: failed to add post", "err", err, "request_id", requestID)
 		http.Error(w, "failed to create post", http.StatusInternalServerError)
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(post)
 	if err != nil {
-		slog.Error("addPostHandler: failed to encode JSON", "err", err)
+		slog.Error("addPostHandler: failed to encode JSON", "err", err, "request_id", requestID)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
 		return
 	}
