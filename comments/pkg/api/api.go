@@ -50,6 +50,11 @@ func (api *API) commentsByNewsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(comments) == 0 {
+		http.Error(w, "no comments found", http.StatusNotFound)
+		return
+	}
+
 	err = json.NewEncoder(w).Encode(toDTOs(comments))
 	if err != nil {
 		slog.Error("commentsByNewsHandler: failed to encode JSON", "err", err, "request_id", requestID)
