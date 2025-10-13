@@ -33,6 +33,7 @@ func (api *API) Router() *mux.Router {
 func (api *API) endpoints() {
 	api.r.Use(api.jsonMiddleware)
 	api.r.Use(api.requestIDMiddleware)
+	api.r.Use(api.loggingMiddleware)
 	api.r.HandleFunc("/comments/{n}", api.commentsByNewsHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/comments", api.addCommentHandler).Methods(http.MethodPost)
 }

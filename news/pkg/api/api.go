@@ -35,6 +35,7 @@ func (api *API) Router() *mux.Router {
 // Registration of API methods in the request router.
 func (api *API) endpoints() {
 	api.r.Use(api.requestIDMiddleware)
+	api.r.Use(api.loggingMiddleware)
 	api.r.HandleFunc("/news/filter", api.filterHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/new/{id}", api.postHandler).Methods(http.MethodGet)
 	api.r.HandleFunc("/news/{n}", api.postsHandler).Methods(http.MethodGet)

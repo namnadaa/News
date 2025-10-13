@@ -39,6 +39,7 @@ func (h *Handler) Router() *mux.Router {
 func (h *Handler) registerRoutes() {
 	h.router.Use(h.jsonMiddleware)
 	h.router.Use(h.requestIDMiddleware)
+	h.router.Use(h.loggingMiddleware)
 	h.router.HandleFunc("/news", h.newsListHandler).Methods(http.MethodGet)
 	h.router.HandleFunc("/news/filter", h.newsFilterHandler).Methods(http.MethodGet)
 	h.router.HandleFunc("/news/{id}", h.newsDetailedHandler).Methods(http.MethodGet)
