@@ -83,8 +83,18 @@ services:
     environment:
       NEWS_SERVICE_URL: "http://news:8080"  
       COMMENTS_SERVICE_URL: "http://comments:8083"  
+      CENSORSHIP_SERVICE_URL: "http://censorship:8084"  
     networks:
       - gonews-net
+  
+  censorship:
+    build:
+      context: ./censorship
+    container_name: gonews-censorship
+    ports:
+      - "8084:8084"
+    networks:
+      - "gonews-net"    
 
 volumes:
   pgdata:

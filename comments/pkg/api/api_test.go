@@ -45,14 +45,12 @@ func TestAPI_commentsByNewsHandler(t *testing.T) {
 		ParentID: "",
 		Author:   "Alex",
 		Content:  "Test comment",
-		Allowed:  true,
 	}
 	comment2 := storage.Comment{
 		NewsID:   "123",
 		ParentID: "",
 		Author:   "Bob",
 		Content:  "Test comment 2",
-		Allowed:  true,
 	}
 
 	_, err = db.AddComment(ctx, comment1)

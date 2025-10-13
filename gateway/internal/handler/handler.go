@@ -15,17 +15,19 @@ import (
 
 // Handler is responsible for registering routes and processing HTTP requests.
 type Handler struct {
-	router             *mux.Router
-	newsServiceURL     string
-	commentsServiceURL string
+	router               *mux.Router
+	newsServiceURL       string
+	commentsServiceURL   string
+	censorshipServiceURL string
 }
 
 // NewHandler creates and initializes a new Handler instance.
-func New(newsURL, commentsURL string) *Handler {
+func New(newsURL, commentsURL, censorshipURL string) *Handler {
 	h := Handler{}
 	h.router = mux.NewRouter()
 	h.newsServiceURL = newsURL
 	h.commentsServiceURL = commentsURL
+	h.censorshipServiceURL = censorshipURL
 	h.registerRoutes()
 	return &h
 }
@@ -162,7 +164,7 @@ func (h *Handler) newsDetailedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// addCommentHandler proxies the request for creating a new comment.
+// addCommentHandler proxies the request for creating a new comment with censorship validation.
 func (h *Handler) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 	requestID := getRequestID(r.Context())
 
@@ -173,6 +175,31 @@ func (h *Handler) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to read body", http.StatusBadRequest)
 		return
 	}
+
+	censorURL := fmt.Sprintf("%s/check?request_id=%s", h.censorshipServiceURL, requestID)
+	censorReq, err := http.NewRequest(http.MethodPost, censorURL, strings.NewReader(string(body)))
+	if err != nil {
+		slog.Error("addCommentHandler: failed to create censorship request", "err", err, "request_id", requestID)
+		http.Error(w, "failed to create request", http.StatusInternalServerError)
+		return
+	}
+	censorReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	censorResp, err := client.Do(censorReq)
+	if err != nil {
+		slog.Error("addCommentHandler: failed to send censorship request", "err", err, "request_id", requestID)
+		http.Error(w, "failed to send request to censorship service", http.StatusBadGateway)
+		return
+	}
+	defer censorResp.Body.Close()
+
+	if censorResp.StatusCode != http.StatusOK {
+		slog.Warn("addCommentHandler: comment rejected by censorship", "status", censorResp.StatusCode, "request_id", requestID)
+		http.Error(w, "comment rejected by censorship", http.StatusBadRequest)
+		return
+	}
+
 	updated := fmt.Sprintf(`{"news_id":"%s",%s`, id, body[1:])
 	url := fmt.Sprintf("%s/comments?request_id=%s", h.commentsServiceURL, requestID)
 
@@ -184,7 +211,6 @@ func (h *Handler) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		slog.Error("addCommentHandler: failed to send request", "err", err, "request_id", requestID)

@@ -50,23 +50,23 @@ func main() {
 		}
 	}()
 
-	ticker := time.NewTicker(5 * time.Second)
-	go mongo.Moderation(ctx, ticker, db)
-
 	api := api.New(db)
 	srv := &http.Server{
 		Addr:    ":8083",
 		Handler: api.Router(),
 	}
 
-	err = srv.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		slog.Error("http server failed", "err", err)
-		stop()
-	}
+	go func() {
+		slog.Info("starting comments service", "address", srv.Addr)
+		err = srv.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			slog.Error("http server failed", "err", err)
+			stop()
+		}
+	}()
 
 	<-ctx.Done()
-	slog.Info("shutting down")
+	slog.Info("shutting down comments service")
 
 	sdCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
