@@ -2,7 +2,9 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"news/pkg/storage"
+	"strings"
 	"testing"
 	"time"
 )
@@ -117,6 +119,94 @@ func TestPostgresStorage_Posts(t *testing.T) {
 		t.Errorf("got - %d, expected - 1 post from pagination", len(pagedPosts))
 	}
 	t.Logf("Paginated post: %+v", pagedPosts[0])
+}
+
+func TestPostgresStorage_GetPostsPaginated(t *testing.T) {
+	connstr := "postgres://news_user_test:strongpasswordtest@localhost:5436/newsdb_test?sslmode=disable"
+
+	ps, err := New(connstr)
+	if err != nil {
+		t.Fatalf("could not create DB storage: %v", err)
+	}
+	defer ps.db.Close()
+
+	err = ps.ClearPosts()
+	if err != nil {
+		t.Fatalf("failed to clear post: %v", err)
+	}
+
+	for i := 1; i <= 20; i++ {
+		_, err := ps.AddPost(storage.Post{
+			Title:   fmt.Sprintf("Post %d", i),
+			Content: "Test",
+			PubTime: time.Now().Add(-time.Duration(i) * time.Hour),
+			Link:    fmt.Sprintf("https://example.com/%d", i),
+		})
+		if err != nil {
+			t.Fatalf("insert error: %v", err)
+		}
+	}
+
+	posts, pagination, err := ps.GetPostsPaginated(2, 5)
+	if err != nil {
+		t.Fatalf("query error: %v", err)
+	}
+
+	if len(posts) != 5 {
+		t.Errorf("got %d posts, want 5", len(posts))
+	}
+	if pagination.CurrentPage != 2 {
+		t.Errorf("got page %d, want 2", pagination.CurrentPage)
+	}
+	if pagination.TotalPages == 0 {
+		t.Errorf("expected total pages > 0")
+	}
+}
+
+func TestPostgresStorage_SearchPosts(t *testing.T) {
+	connstr := "postgres://news_user_test:strongpasswordtest@localhost:5436/newsdb_test?sslmode=disable"
+
+	ps, err := New(connstr)
+	if err != nil {
+		t.Fatalf("could not create DB storage: %v", err)
+	}
+	defer ps.db.Close()
+
+	err = ps.ClearPosts()
+	if err != nil {
+		t.Fatalf("failed to clear post: %v", err)
+	}
+
+	posts := []storage.Post{
+		{
+			Title:   "Go concurrency",
+			Content: "Channels and goroutines",
+			PubTime: time.Now(),
+			Link:    "http://example.com/go-concurrency",
+		},
+		{
+			Title:   "Python basics",
+			Content: "Intro to Python",
+			PubTime: time.Now(),
+			Link:    "http://example.com/python",
+		},
+	}
+
+	for _, p := range posts {
+		_, err := ps.AddPost(p)
+		if err != nil {
+			t.Fatalf("Failed to insert post: %v", err)
+		}
+	}
+
+	results, err := ps.SearchPosts("go")
+	if err != nil {
+		t.Fatalf("query error: %v", err)
+	}
+
+	if len(results) != 1 || !strings.Contains(results[0].Title, "Go") {
+		t.Errorf("unexpected search result: %+v", results)
+	}
 }
 
 func TestPostgresStorage_AddPost(t *testing.T) {
