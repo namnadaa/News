@@ -18,7 +18,7 @@ func TestAPI_checkHandler(t *testing.T) {
 		api.Router().ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", rr.Code)
+			t.Fatalf("got %d, want 200", rr.Code)
 		}
 
 		var resp map[string]string
@@ -28,7 +28,7 @@ func TestAPI_checkHandler(t *testing.T) {
 		}
 
 		if resp["status"] != "ok" {
-			t.Errorf("expected status ok, got %v", resp["status"])
+			t.Errorf("got %v, want status ok,", resp["status"])
 		}
 	})
 
@@ -41,7 +41,7 @@ func TestAPI_checkHandler(t *testing.T) {
 		api.Router().ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", rr.Code)
+			t.Fatalf("got %d, want 200", rr.Code)
 		}
 	})
 
@@ -54,7 +54,7 @@ func TestAPI_checkHandler(t *testing.T) {
 		api.Router().ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", rr.Code)
+			t.Fatalf("got %d, want 200", rr.Code)
 		}
 	})
 }
