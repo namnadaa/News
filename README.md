@@ -1,88 +1,58 @@
-# News (RSS Aggregator)
+# News Microservice
 
-A lightweight news aggregator in Go. It periodically polls RSS feeds, stores articles in PostgreSQL, and serves them via an HTTP API. The frontend (Vue + Vuetify) is built into static files and served by the same server.
+A modular microservice-based news aggregator built with **Go**, featuring:
+- Independent services for **news**, **comments**, **censorship**, and **API gateway**
+- RESTful APIs for each service
+- Full-stack integration via API Gateway
+- Docker-based deployment with PostgreSQL and MongoDB
+
+---
+
+## Overview
+
+The system periodically collects articles from RSS feeds, stores them in a PostgreSQL database, and exposes them via an HTTP API.  
+Users can view news, leave comments, and the censorship service automatically filters restricted words in the comments.
+
+---
+
+## Services
+
+| Service | Description | Port | Tech |
+|----------|-------------|------|------|
+| **news** | Aggregates RSS feeds, stores and serves news | `8081` | Go + PostgreSQL |
+| **comments** | Stores comments per news, validates via censorship service | `8082` | Go + MongoDB |
+| **censorship** | Validates comment text, blocks banned words | `8083` | Go |
+| **gateway** | Entry point for all clients, routes to services | `8080` | Go |
 
 ---
 
 ## Features
-
 - Scheduled polling of multiple RSS feeds
--	HTML stripping and parsing of various RSS date formats
--	Persistence in PostgreSQL (uniqueness by link)
--	HTTP API for listing and detailed view
--	Built-in static serving of the frontend (Vue/Vuetify bundle in webapp/)
--	Dockerfile + docker-compose (with Postgres and a test DB)
--	Concise JSON logs (slog)
--	Integration tests for the API
+- PostgreSQL for persistent news storage
+- MongoDB for comments
+- Censorship microservice for content moderation
+- API Gateway unifying all endpoints
+- Unit & Integration tests
+- Docker & docker-compose support
+- Structured JSON logging with slog
+- End-to-end Request ID propagation across all services
+- Built-in static serving of the frontend (Vue/Vuetify bundle in webapp/)
 
 ---
+
 
 ## How It Works
-- On a timer, the aggregator iterates over all URLs from config.json → parses title/description/pubDate/link → writes to the DB.
-- There’s a unique index on the link field to avoid duplicates (on repeats you’ll see error 23505 in logs — that’s OK).
-- The API returns JSON; the frontend does fetch('/news/40') and renders cards.
-
----
-
-## API Overview
-
-### GET /news/{n}
-
-Returns the latest n publications:
-
-```json
-[
-  {
-    "ID": 123,
-    "Title": "Title",
-    "Content": "Short text",
-    "PubTime": 1757930940,
-    "Link": "https://example.com/post"
-  },
-  {
-    "ID": 124,
-    "Title": "Title 2",
-    "Content": "Short text 2",
-    "PubTime": 1757964816,
-    "Link": "https://example.com/post2"
-  }
-]
-```
-
-### GET /news/new/{id}
-
-Returns a single publication by ID:
-
-```json
-[
-  {
-    "ID": 123,
-    "Title": "Title",
-    "Content": "Short text",
-    "PubTime": 1757930940,
-    "Link": "https://example.com/post"
-  }
-]
-```
-
-### (Optional) POST /news
-
-Manual insert for debugging:
-
-```json
-{
-  "Title": "Title",
-  "Content": "Text",
-  "PubTime": "2025-09-15T12:00:00Z",
-  "Link": "https://example.com/post"
-}
-```
+- On a timer, the news service iterates over all RSS URLs from config.json, parses title, description, pubDate, and link, and writes them to PostgreSQL.
+- Each record has a unique index on link to prevent duplicates.
+- The API Gateway proxies all requests to internal services (news, comments, censorship), attaching a request_id for full traceability in logs.
+- The comments service stores user comments in MongoDB, while the censorship service validates each comment synchronously before it’s saved.
+- The frontend (Vue/Vuetify) calls /news, /news/{id}, and /news/{id}/comment endpoints through the gateway and renders data dynamically.
 
 ---
 
 ## Data Storage
 
-PostgreSQL, table posts:
+**PostgreSQL** (news service), table posts:
 
 ```SQL
 CREATE TABLE posts (
@@ -97,20 +67,39 @@ CREATE TABLE posts (
 - ID is assigned by the DB (BIGSERIAL).
 - UNIQUE (link) protects against duplicates on each RSS poll.
 
+**MongoDB** (comments service), collection comments:
+
+```go
+type Comment struct {
+    ID        string    `bson:"_id,omitempty"`
+    NewsID    string    `bson:"news_id"`
+    ParentID  string    `bson:"parent_id,omitempty"`
+    Author    string    `bson:"author"`
+    Content   string    `bson:"content"`
+    CreatedAt time.Time `bson:"created_at"`
+}
+```
+- news_id links a comment to its post.
+- parent_id allows nested comment threads.
+- created_at is automatically set when adding a new comment.
+
 ---
 
 ## Running
 
-### build and start (Docker Compose)
+### build and start the system
 
 ```bash
 docker compose up -d --build
 ```
 
-### running (locally)
+### check running services
 
 ```bash
-go run ./cmd/server/main.go
+curl http://localhost:8080/news?page={n}
+curl http://localhost:8080/news/filter?s={m}
+curl http://localhost:8080/news/{id}
+curl http://localhost:8080/news/{id}/comment
 ```
 
 ---
@@ -139,30 +128,22 @@ config.json:
 
 API integration tests use a separate test DB (port 5436 in compose).
 
+You can also test the full system manually using Postman via the API Gateway:
+- GET /news — list paginated news
+- GET /news/filter?s=keyword — search by title
+- GET /news/{id} — get full details with comments
+- POST /news/{id}/comment — add a new comment
+
 ---
 
 ## Project Structure
 
 ```
-News/
-├── cmd/
-│   └── server/           # Entry point (main.go)
-├── initdb/               # SQL schema and initial setup
-├── internal/
-│   └── config/           # Read/normalize config.json
-├── pkg/
-│   ├── aggregator/       # Timed RSS polling
-│   ├── api/              # HTTP API + static files (gorilla/mux)
-│   ├── rss/              # RSS parser (XML → models)
-│   └── storage/
-│       ├── postgres/     # Pgx pool, SQL, Add/Post/Posts methods
-│       └── storage.go    # Storage interface and Post model
-├── webapp/               # Built Vue/Vuetify static files
-├── .gitignore
-├── Dockerfile
-├── README.md
-├── config.json           # RSS list and polling period
+goNews/
+├── censorship/       # Censorship validation service
+├── comments/         # Comments service (MongoDB)
+├── gateway/          # API Gateway
+├── news/             # News service (PostgreSQL)
 ├── docker-compose.yaml
-├── go.mod                # Module definition
-└── go.sum
+└── README.md
 ```
