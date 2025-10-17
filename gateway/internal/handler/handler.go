@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -98,7 +99,7 @@ func (h *Handler) newsFilterHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 }
 
-// newsDetailedHandler combines data from news and comments services to return full news details.
+// newsDetailedHandler concurrently fetches news and comments, merges their results, and returns a combined JSON response.
 func (h *Handler) newsDetailedHandler(w http.ResponseWriter, r *http.Request) {
 	requestID := getRequestID(r.Context())
 
@@ -108,55 +109,83 @@ func (h *Handler) newsDetailedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newsURL := fmt.Sprintf("%s/news/new/%s?request_id=%s", h.newsServiceURL, id, requestID)
-	newsResp, err := http.Get(newsURL)
-	if err != nil {
-		slog.Error("newsDetailedHandler: failed to fetch news", "err", err, "request_id", requestID)
-		http.Error(w, "failed to fetch news", http.StatusBadGateway)
-		return
-	}
-	defer newsResp.Body.Close()
+	var (
+		newsData     models.NewsShortDetailed
+		commentsData []models.Comment
+	)
 
-	if newsResp.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("news service returned %d", newsResp.StatusCode), newsResp.StatusCode)
-		return
-	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, 2)
 
-	var news models.NewsShortDetailed
-	err = json.NewDecoder(newsResp.Body).Decode(&news)
-	if err != nil {
-		slog.Error("newsDetailedHandler: failed to decode news", "err", err, "request_id", requestID)
-		http.Error(w, "failed to decode news response", http.StatusInternalServerError)
-		return
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	commentsURL := fmt.Sprintf("%s/comments/%s?request_id=%s", h.commentsServiceURL, id, requestID)
-	commentsResp, err := http.Get(commentsURL)
-	if err != nil {
-		slog.Error("newsDetailedHandler: failed to fetch comments", "err", err, "request_id", requestID)
-		http.Error(w, "failed to fetch comments", http.StatusBadGateway)
-		return
-	}
-	defer commentsResp.Body.Close()
+		newsURL := fmt.Sprintf("%s/news/new/%s?request_id=%s", h.newsServiceURL, id, requestID)
+		newsResp, err := http.Get(newsURL)
+		if err != nil {
+			slog.Error("newsDetailedHandler: failed to fetch news", "err", err, "request_id", requestID)
+			errCh <- fmt.Errorf("failed to fetch news: %w", err)
+			return
+		}
+		defer newsResp.Body.Close()
 
-	if commentsResp.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("comments service returned %d", commentsResp.StatusCode), commentsResp.StatusCode)
-		return
-	}
+		if newsResp.StatusCode != http.StatusOK {
+			errCh <- fmt.Errorf("news service returned %d", newsResp.StatusCode)
+			return
+		}
 
-	var comments []models.Comment
-	err = json.NewDecoder(commentsResp.Body).Decode(&comments)
-	if err != nil {
-		slog.Error("newsDetailedHandler: failed to decode comments", "err", err, "request_id", requestID)
-		http.Error(w, "failed to decode comments response", http.StatusInternalServerError)
+		err = json.NewDecoder(newsResp.Body).Decode(&newsData)
+		if err != nil {
+			slog.Error("newsDetailedHandler: failed to decode news", "err", err, "request_id", requestID)
+			errCh <- fmt.Errorf("failed to decode news response: %w", err)
+			return
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		commentsURL := fmt.Sprintf("%s/comments/%s?request_id=%s", h.commentsServiceURL, id, requestID)
+		commentsResp, err := http.Get(commentsURL)
+		if err != nil {
+			slog.Error("newsDetailedHandler: failed to fetch comments", "err", err, "request_id", requestID)
+			errCh <- fmt.Errorf("failed to fetch comments: %w", err)
+			return
+		}
+		defer commentsResp.Body.Close()
+
+		if commentsResp.StatusCode != http.StatusOK {
+			errCh <- fmt.Errorf("comments service returned %d", commentsResp.StatusCode)
+			return
+		}
+
+		err = json.NewDecoder(commentsResp.Body).Decode(&commentsData)
+		if err != nil {
+			slog.Error("newsDetailedHandler: failed to decode comments", "err", err, "request_id", requestID)
+			errCh <- fmt.Errorf("failed to decode news response: %w", err)
+		}
+	}()
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			slog.Error("newsDetailedHandler: concurrent request failed", "err", err, "request_id", requestID)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+
+		}
 	}
 
 	detailed := models.NewsFullDetailed{
-		News:     news,
-		Comments: comments,
+		News:     newsData,
+		Comments: commentsData,
 	}
 
-	err = json.NewEncoder(w).Encode(detailed)
+	err := json.NewEncoder(w).Encode(detailed)
 	if err != nil {
 		slog.Error("newsDetailedHandler: failed to encode JSON", "err", err, "request_id", requestID)
 		http.Error(w, "failed to encode response", http.StatusBadRequest)
