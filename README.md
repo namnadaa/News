@@ -45,6 +45,7 @@ Users can view news, leave comments, and the censorship service automatically fi
 - On a timer, the news service iterates over all RSS URLs from config.json, parses title, description, pubDate, and link, and writes them to PostgreSQL.
 - Each record has a unique index on link to prevent duplicates.
 - The API Gateway proxies all requests to internal services (news, comments, censorship), attaching a request_id for full traceability in logs.
+- When fetching detailed news, the gateway sends parallel (asynchronous) requests to the news and comments services using goroutines and a wait group, aggregating results before responding.
 - The comments service stores user comments in MongoDB, while the censorship service validates each comment synchronously before it’s saved.
 - The frontend (Vue/Vuetify) calls /news, /news/{id}, and /news/{id}/comment endpoints through the gateway and renders data dynamically.
 
