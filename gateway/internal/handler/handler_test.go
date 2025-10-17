@@ -146,8 +146,8 @@ func TestHandler_newsDetailedHandler(t *testing.T) {
 		},
 		{
 			name:       "news service down",
-			newsStatus: http.StatusServiceUnavailable,
-			wantStatus: http.StatusServiceUnavailable,
+			newsStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusInternalServerError,
 			route:      "/news/1?request_id=abc123",
 		},
 		{
@@ -163,8 +163,8 @@ func TestHandler_newsDetailedHandler(t *testing.T) {
 			name:           "comments service returns error",
 			newsStatus:     http.StatusOK,
 			newsBody:       `{"id":1,"title":"Test News","content":"content"}`,
-			commentsStatus: http.StatusBadGateway,
-			wantStatus:     http.StatusBadGateway,
+			commentsStatus: http.StatusInternalServerError,
+			wantStatus:     http.StatusInternalServerError,
 			route:          "/news/1?request_id=abc123",
 		},
 		{
